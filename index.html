@@ -171,7 +171,6 @@ body.locked .header-right{display:none !important;}
 .page-title em { font-style: normal; color: var(--pink); }
 .page-content-box {display: flex; flex-direction: column; gap: 18px;}
 .page-text { font-size: .94rem; line-height: 1.75; color: #a5adb7; }
-.page-text strong { color: #e6edf3; font-weight: 600; }
 
 .code-block{
   margin:10px 0;max-width:100%;
@@ -437,7 +436,7 @@ body.locked .chat-container, body.locked .input-area{opacity:0;pointer-events:no
     <input type="text" id="chatInput" placeholder="Сообщение нейросети..." autocomplete="off">
     <div class="model-select">
       <button type="button" class="model-btn" id="modelBtn">
-        <span id="modelLabel">GPT-4o Mini</span>
+        <span id="modelLabel">Claude Fable 5</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
       <ul class="model-menu" id="modelMenu"></ul>
@@ -528,7 +527,8 @@ const ADMIN_KEY = "provvai_admin_token";
 
 let currentUser = null;
 let userBalance = 100.00;
-let authMode = "login"; // "login" | "register"
+let authMode = "login";
+let chatHistory = []; // Контекст диалога
 
 function getUserHeaders(extra = {}) {
   const token = localStorage.getItem(SESSION_KEY);
@@ -630,6 +630,8 @@ async function checkAuth() {
 function clearUserState(wipeToken = true) {
   if (wipeToken) localStorage.removeItem(SESSION_KEY);
   currentUser = null;
+  chatHistory = [];
+  chatContainer.innerHTML = '<div class="message ai"><div class="bubble">Привет! Я ProvvAI. Выбери модель в списке ниже и напиши сообщение.</div></div>';
   document.body.classList.add('locked');
   document.getElementById('authPanel').classList.remove('hidden');
   document.getElementById('welcomeOverlay').classList.remove('show');
@@ -654,7 +656,11 @@ function renderUser() {
 }
 
 function updateBalanceDisplay() {
-  document.getElementById('balanceText').textContent = `$${Number(userBalance).toFixed(2)}`;
+  const val = Number(userBalance);
+  const formatted = Math.abs(val - Math.round(val * 100) / 100) < 0.00005
+    ? val.toFixed(2)
+    : val.toFixed(4);
+  document.getElementById('balanceText').textContent = `$${formatted}`;
 }
 
 document.getElementById('welcomeContinueBtn').addEventListener('click', () => {
@@ -725,7 +731,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 const SYS_NORMAL = "You are a helpful assistant. When you write UI code, never use emoji as icons — use inline SVG instead.";
 const MAX_TOKENS = 1024;
 
-let currentModel = "gpt-4o-mini";
+let currentModel = "claude-fable-5";
 let currentProvider = "freemodel";
 
 const chatInput     = document.getElementById('chatInput');
@@ -735,30 +741,42 @@ const menu          = document.getElementById('modelMenu');
 const globalSubMenu = document.getElementById('globalSubMenu');
 
 const FULL_MODELS_DATA = {
-  "OpenAI": {
-    icon: "https://icons.duckduckgo.com/ip3/openai.com.ico",
-    models: [
-      { id: "gpt-4o-mini", provider: "freemodel", name: "GPT-4o Mini", price: "$0.15" },
-      { id: "gpt-4o", provider: "freemodel", name: "GPT-4o", price: "$2.50" },
-      { id: "gpt-4.1", provider: "freemodel", name: "GPT-4.1", price: "$2.00" }
-    ]
-  },
   "Anthropic": {
     icon: "https://icons.duckduckgo.com/ip3/anthropic.com.ico",
     models: [
-      { id: "claude-3-5-sonnet", provider: "freemodel", name: "Claude 3.5 Sonnet", price: "$3.00" }
+      { id: "claude-fable-5", provider: "freemodel", name: "Claude Fable 5", price: "$16.61" },
+      { id: "claude-opus-5", provider: "freemodel", name: "Claude Opus 5", price: "$8.30" },
+      { id: "claude-sonnet-5", provider: "freemodel", name: "Claude Sonnet 5", price: "$3.32" }
+    ]
+  },
+  "OpenAI": {
+    icon: "https://icons.duckduckgo.com/ip3/openai.com.ico",
+    models: [
+      { id: "gpt-6-astra", provider: "freemodel", name: "GPT-6 Astra", price: "$8.95" },
+      { id: "gpt-6-luna", provider: "freemodel", name: "GPT-6 Luna", price: "$0.10" },
+      { id: "gpt-5.5", provider: "freemodel", name: "GPT-5.5", price: "$8.95" }
     ]
   },
   "Google (Gemini)": {
     icon: "https://icons.duckduckgo.com/ip3/gemini.google.com.ico",
     models: [
-      { id: "gemini-2.0-flash", provider: "freemodel", name: "Gemini 2.0 Flash", price: "$0.10" }
+      { id: "gemini-3.1-pro", provider: "freemodel", name: "Gemini 3.1 Pro", price: "$4.47" }
+    ]
+  },
+  "DeepSeek": {
+    icon: "https://icons.duckduckgo.com/ip3/deepseek.com.ico",
+    models: [
+      { id: "deepseek-v4.1-flash", provider: "freemodel", name: "DeepSeek V4.1 Flash", price: "$0.05" }
     ]
   },
   "Cloudflare": {
     icon: "https://icons.duckduckgo.com/ip3/cloudflare.com.ico",
     models: [
-      { id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", provider: "cloudflare", name: "Llama 3.3 70B", price: "Free" }
+      { id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", provider: "cloudflare", name: "Llama 3.3 70B", price: "Free" },
+      { id: "@cf/meta/llama-3.1-8b-instruct", provider: "cloudflare", name: "Llama 3.1 8B", price: "Free" },
+      { id: "@cf/qwen/qwen3.8-27b", provider: "cloudflare", name: "Qwen 3.8 27B", price: "Free" },
+      { id: "@cf/google/gemma-4-26b-a4b-it", provider: "cloudflare", name: "Gemma 4 26B", price: "Free" },
+      { id: "@cf/mistralai/mistral-small-3.1-24b-instruct", provider: "cloudflare", name: "Mistral Small 3.1", price: "Free" }
     ]
   }
 };
@@ -942,7 +960,7 @@ function renderReply(text) {
 chatInput.addEventListener('keydown', async (e) => {
   if (e.key !== 'Enter' || e.shiftKey || chatInput.value.trim() === '') return;
 
-  if (userBalance <= 0) {
+  if (currentProvider !== 'cloudflare' && userBalance <= 0) {
     addMessage('Недостаточно средств на балансе', 'ai');
     return;
   }
@@ -956,13 +974,16 @@ chatInput.addEventListener('keydown', async (e) => {
   chatContainer.scrollTop = chatContainer.scrollHeight;
 
   try {
+    const messagesWithContext = [
+      { role: "system", content: SYS_NORMAL },
+      ...chatHistory.slice(-20),
+      { role: "user", content: prompt }
+    ];
+
     const payload = {
       provider: currentProvider,
       model: currentModel,
-      messages: [
-        { role: "system", content: SYS_NORMAL },
-        { role: "user", content: prompt }
-      ],
+      messages: messagesWithContext,
       max_tokens: MAX_TOKENS
     };
 
@@ -973,15 +994,15 @@ chatInput.addEventListener('keydown', async (e) => {
       body: JSON.stringify(payload)
     });
 
-    if (res.status === 401) {
-      clearUserState(true);
-      throw new Error("Сессия истекла. Войдите снова.");
-    }
-
     const rawText = await res.text();
     let data;
     try { data = JSON.parse(rawText); }
     catch { throw new Error('Не JSON: ' + rawText.slice(0, 80)); }
+
+    if (res.status === 401 && (data.code === 'SESSION_EXPIRED' || data.error === 'Unauthorized')) {
+      clearUserState(true);
+      throw new Error("Сессия истекла. Войдите снова.");
+    }
 
     if (!res.ok || data.success === false) {
       if (data.banned) showBanScreen(data.email || currentUser?.email || '');
@@ -995,10 +1016,17 @@ chatInput.addEventListener('keydown', async (e) => {
     }
 
     let rawContent = '';
-    if (data.choices?.[0]?.message) rawContent = data.choices[0].message.content;
+    if (data.content?.[0]?.text) rawContent = data.content[0].text;
+    else if (data.choices?.[0]?.message) rawContent = data.choices[0].message.content;
     else if (typeof data.result === 'string') rawContent = data.result;
     else if (data.result?.response) rawContent = data.result.response;
     else if (data.message) rawContent = data.message.content;
+
+    if (rawContent) {
+      chatHistory.push({ role: "user", content: prompt });
+      chatHistory.push({ role: "assistant", content: rawContent });
+      if (chatHistory.length > 40) chatHistory = chatHistory.slice(-40);
+    }
 
     pending.think.remove();
     pending.bubble.innerHTML = '';
@@ -1132,7 +1160,7 @@ async function loadAdminUsers() {
   const body = table.querySelector('tbody');
   users.forEach(u => {
     const tr = document.createElement('tr');
-    [u.email, `$${Number(u.balance ?? 100).toFixed(2)}`, Number(u.tokensUsed || 0).toLocaleString('ru-RU'), u.lastIp || '—']
+    [u.email, `$${Number(u.balance ?? 100).toFixed(4)}`, Number(u.tokensUsed || 0).toLocaleString('ru-RU'), u.lastIp || '—']
       .forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.appendChild(td); });
     const td = document.createElement('td');
     const b = document.createElement('button');
