@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProvvAI Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap&subset=cyrillic" rel="stylesheet">
+<style>
+/* ================= ПАЛИТРА В СТИЛЕ РЕФЕРЕНСА ================= */
+:root{
+  --bg:#0a0a0f;
+  --text:#f4eef3;
+  --muted:#948a94;
+  --pink:#ff5c9a;
+  --green:#4ade80;
+  --yellow:#fbbf24;
+  --blue:#3b82f6;
+  --err:#ff5c9a;
+
+  --font-display:'Unbounded',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --font-sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+}
+
+/* --- ФОН ИЗ РЕФЕРЕНСА (СЕТКА + ВИНЬЕТКА) --- */
+.stage{
+  position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255,92,154,.04), transparent 60%),
+    linear-gradient(rgba(140,150,220,.08) 1px, transparent 1px) 0 0 / 38px 38px,
+    linear-gradient(90deg, rgba(140,150,220,.08) 1px, transparent 1px) 0 0 / 38px 38px,
+    var(--bg);
+}
+.vignette{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(10,10,15,.4) 60%, var(--bg) 100%);
+}
+
+.hidden-sub-menu { display: none !important; }
+
+/* ================= ШАПКА ================= */
+.header{
+  position:fixed;top:0;left:0;right:0;height:74px;z-index:10;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;
+  pointer-events:none;
+}
+.header > * { pointer-events:auto; }
+
+.brand{
+  font-family:var(--font-display);
+  font-weight:700;font-size:1.15rem;letter-spacing:-.03em;
+  color:var(--text);cursor:pointer;
+  transition:color .2s;
+}
+.brand:hover{color:var(--pink)}
+
+.header-right{
+  display:flex;align-items:center;gap:10px;
+}
+
+/* --- КНОПКИ В СТИЛЕ .nav-btn ИЗ РЕФЕРЕНСА --- */
+.nav-btn{
+  font-family:var(--font-mono);
+  font-size:clamp(.70rem,1.2vw,.78rem);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--text);
+  background:rgba(15,15,22,.75);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:12px;
+  padding:9px 15px;
+  cursor:pointer;
+  transition:background .2s,color .2s,border-color .2s,transform .15s;
+  outline:none;white-space:nowrap;
+}
+.nav-btn:hover{
+  background:rgba(255,255,255,.06);
+  color:var(--pink);
+  border-color:rgba(255,92,154,.35);
+}
+.nav-btn.active{
+  color:var(--pink);
+  border-color:rgba(255,92,154,.45);
+  background:rgba(255,92,154,.1);
+}
+.nav-btn:active{transform:scale(.97)}
+
+.balance-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 14px; border-radius: 12px;
+  background: rgba(15,15,22,.75);
+  border: 1px solid rgba(74,222,128,.28);
+  font-family: var(--font-mono);
+  font-size: .78rem; font-weight: 500; color: var(--green);
+  backdrop-filter: blur(20px);
+}
+.balance-chip[hidden] { display: none; }
+
+/* --- чип пользователя --- */
+.user-chip{
+  display:flex;align-items:center;gap:8px;
+  padding:4px 8px 4px 5px;border-radius:12px;
+  background:rgba(15,15,22,.75);
+  border:1px solid rgba(255,255,255,.1);
+  backdrop-filter:blur(20px);
+}
+.user-chip[hidden]{display:none}
+.user-avatar{
+  width:28px;height:28px;border-radius:8px;
+  display:grid;place-items:center;flex:0 0 auto;
+  background:rgba(255,92,154,.18);border:1px solid rgba(255,92,154,.4);
+  color:var(--pink);font-family:var(--font-mono);font-size:.76rem;font-weight:600;
+}
+.user-name{
+  max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-family:var(--font-mono);font-size:.76rem;color:var(--text);
+}
+.logout-btn{
+  width:28px;height:28px;border-radius:8px;flex:0 0 auto;
+  display:grid;place-items:center;cursor:pointer;
+  background:transparent;border:1px solid transparent;color:var(--muted);
+  transition:background .2s,color .2s,border-color .2s;
+}
+.logout-btn svg{width:14px;height:14px;display:block}
+.logout-btn:hover{background:rgba(255,92,154,.12);border-color:rgba(255,92,154,.35);color:var(--pink)}
+
+/* ================= ЭКРАН ВХОДА ================= */
+.auth-panel{
+  position:fixed;top:74px;left:0;right:0;bottom:0;z-index:40;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;padding:24px;
+}
+.auth-panel.hidden{opacity:0;visibility:hidden;pointer-events:none}
+
+.auth-title{
+  font-family:var(--font-display);
+  font-size:2.2rem;font-weight:600;letter-spacing:-.04em;color:var(--text);
+}
+.auth-sub{
+  font-family:var(--font-mono);
+  font-size:.82rem;color:var(--muted);margin-top:6px;margin-bottom:24px;
+}
+
+.email-form{
+  display:flex;flex-direction:column;gap:14px;width:100%;max-width:380px;
+  background:rgba(15,15,22,.75);backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,.1);border-radius:16px;
+  padding:24px;box-shadow:0 10px 40px -10px rgba(0,0,0,.8);
+}
+.email-field{display:flex;flex-direction:column;gap:6px}
+.email-field label{
+  font-family:var(--font-mono);font-size:.75rem;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--muted);
+}
+.email-field input{
+  width:100%;padding:12px 14px;
+  font-family:var(--font-mono);font-size:.88rem;color:var(--text);
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  border-radius:10px;outline:none;transition:border-color .2s;
+}
+.email-field input:focus{border-color:var(--pink)}
+
+.btn-primary{
+  font-family:var(--font-mono);font-size:.8rem;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;
+  color:var(--pink);cursor:pointer;
+  background:rgba(255,92,154,.1);
+  border:1px solid rgba(255,92,154,.45);
+  border-radius:10px;padding:12px 18px;
+  transition:background .2s,color .2s,border-color .2s,transform .15s;
+}
+.btn-primary:hover{
+  background:var(--pink);color:#0a0a0f;border-color:var(--pink);
+}
+.btn-primary:active{transform:scale(.98)}
+.auth-error{font-family:var(--font-mono);font-size:.78rem;color:var(--pink);min-height:1em;text-align:center}
+
+/* ================= СТРАНИЦЫ ВМЕСТО ЧАТА (ДОКУМЕНТАЦИЯ И API) ================= */
+.full-page-view {
+  position: fixed; top: 74px; bottom: 0; left: 0; right: 0; z-index: 5;
+  overflow-y: auto; padding: 30px max(24px, calc((100vw - 820px) / 2)) 60px;
+  display: none; flex-direction: column; gap: 20px;
+}
+.full-page-view.active { display: flex; }
+.page-header-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.page-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 3vw, 1.9rem); font-weight: 600; letter-spacing: -.03em; color: var(--text);
+}
+.page-title em { font-style: normal; color: var(--pink); }
+
+.page-content-box {
+  background: rgba(15,15,22,.75);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 40px -10px rgba(0,0,0,.8);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.page-text { font-size: .95rem; line-height: 1.65; color: var(--muted); }
+.page-text strong { color: var(--text); font-weight: 600; }
+.page-text code {
+  font-family: var(--font-mono); font-size: .84rem;
+  background: rgba(255,92,154,.12); color: var(--pink);
+  padding: 2px 7px; border-radius: 6px; border: 1px solid rgba(255,92,154,.25);
+}
+
+/* ================= ПАНЕЛЬ КОДОВ В СТИЛЕ РЕФЕРЕНСА ================= */
+.code-block{
+  margin:10px 0;max-width:100%;
+  background:rgba(15,15,22,.88);
+  backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;overflow:hidden;
+  box-shadow:0 10px 35px -10px rgba(0,0,0,.85);
+  white-space:normal;
+  transition:border-color .2s;
+}
+.code-block:hover{
+  border-color:rgba(255,92,154,.35);
+}
+.code-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:8px 10px 8px 14px;
+  background:rgba(255,255,255,.03);
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.code-head-left{
+  display:flex;align-items:center;gap:10px;
+}
+.code-dots{
+  display:flex;gap:5px;
+}
+.code-dots i{
+  width:8px;height:8px;border-radius:50%;display:block;
+  background:rgba(255,255,255,.15);
+}
+.code-dots i:nth-child(1){background:rgba(255,92,154,.7)}
+.code-dots i:nth-child(2){background:rgba(251,191,36,.7)}
+.code-dots i:nth-child(3){background:rgba(74,222,128,.7)}
+
+.code-lang{
+  font-family:var(--font-mono);
+  font-size:.72rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--pink);
+}
+.code-actions{display:flex;gap:6px}
+.code-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  height:28px;padding:0 10px;
+  border-radius:8px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);
+  font-family:var(--font-mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text);cursor:pointer;
+  transition:background .2s,color .2s,border-color .2s;
+}
+.code-btn svg{width:13px;height:13px;display:block}
+.code-btn:hover{
+  background:rgba(255,92,154,.12);
+  color:var(--pink);
+  border-color:rgba(255,92,154,.4);
+}
+.code-btn.done{
+  color:var(--green);
+  border-color:rgba(74,222,128,.45);
+  background:rgba(74,222,128,.1);
+}
+.code-block pre{
+  margin:0;padding:16px 18px;overflow:auto;max-height:440px;
+  font-family:var(--font-mono);
+  font-size:.82rem;line-height:1.65;color:#e6dee5;
+}
+.code-block pre::-webkit-scrollbar{height:6px;width:6px}
+.code-block pre::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+.code-block code{font:inherit;white-space:pre;tab-size:2}
+
+/* Модалка пополнения / приветствия */
+.modal-overlay{
+  position:fixed;inset:0;z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+  background:rgba(10,10,15,.72);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .3s ease,visibility .3s ease;
+}
+.modal-overlay.show{opacity:1;visibility:visible;pointer-events:auto}
+.modal-card{
+  width:100%;max-width:430px;
+  padding:28px;border-radius:16px;
+  background:rgba(15,15,22,.92);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 15px 50px -10px rgba(0,0,0,.9);
+  display:flex;flex-direction:column;gap:16px;text-align:center;
+}
+.modal-title{
+  font-family:var(--font-display);font-size:1.15rem;font-weight:600;color:var(--text);
+}
+.modal-text{font-size:.92rem;line-height:1.55;color:var(--muted)}
+
+/* Скрыт чат до входа */
+body.locked .chat-container, body.locked .input-area{opacity:0;pointer-events:none}
+.chat-container,.input-area{transition:opacity .45s ease}
+
+/* ================= ЧАТ ================= */
+.chat-container{
+  position:fixed;top:74px;bottom:116px;left:0;right:0;z-index:2;
+  display:flex;flex-direction:column;overflow-y:auto;
+  padding:24px max(24px,calc((100vw - 820px) / 2));
+  scroll-behavior:smooth;scrollbar-width:none;
+}
+.chat-container::-webkit-scrollbar{display:none}
+
+.message{display:flex;margin-bottom:20px;max-width:100%;animation:fadeIn .3s ease;flex-direction:column}
+.message.user{align-items:flex-end}
+.message.ai{align-items:flex-start}
+
+.bubble{
+  padding:15px 20px;border-radius:16px;font-size:.96rem;line-height:1.65;max-width:85%;
+  white-space:pre-wrap;word-break:break-word;
+}
+.message.user .bubble{
+  background:rgba(255,92,154,.12);
+  border:1px solid rgba(255,92,154,.3);
+  color:var(--text);
+}
+.message.ai .bubble{
+  background:rgba(15,15,22,.75);
+  border:1px solid rgba(255,255,255,.1);
+  color:var(--text);
+  backdrop-filter:blur(20px);
+  box-shadow:0 10px 30px -10px rgba(0,0,0,.6);
+}
+
+.typing-dots{display:flex;gap:5px;align-items:center;height:22px;padding:0 6px}
+.typing-dots span{
+  width:6px;height:6px;background:var(--pink);border-radius:50%;
+  animation:bounce 1.4s infinite ease-in-out both;
+}
+.typing-dots span:nth-child(1){animation-delay:-.32s}
+.typing-dots span:nth-child(2){animation-delay:-.16s}
+
+@keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ================= БЛОК РАЗМЫШЛЕНИЙ ================= */
+.think{align-self:flex-start;max-width:85%;margin-bottom:8px;animation:fadeIn .25s ease}
+.think-toggle{
+  display:inline-flex;align-items:center;gap:6px;
+  background:none;border:0;padding:2px 0;margin:0;cursor:pointer;
+  font-family:var(--font-mono);font-size:.74rem;color:var(--muted);
+}
+.think-toggle:hover{color:var(--pink)}
+.think-toggle .chev{width:12px;height:12px;flex:0 0 auto;transition:transform .28s ease}
+.think.open .think-toggle .chev{transform:rotate(90deg)}
+
+.think-body{
+  display:grid;grid-template-rows:0fr;opacity:0;
+  transition:grid-template-rows .34s ease,opacity .25s ease;
+}
+.think.open .think-body{grid-template-rows:1fr;opacity:1}
+.think-inner{
+  overflow:hidden;min-height:0;margin-top:6px;padding-left:12px;
+  border-left:1px solid rgba(255,92,154,.35);color:var(--muted);
+  font-family:var(--font-mono);font-size:.78rem;line-height:1.65;
+  white-space:pre-wrap;word-break:break-word;
+}
+
+/* ================= ВВОД ================= */
+.input-area{
+  position:fixed;bottom:0;left:0;right:0;z-index:10;
+  padding:16px max(24px,calc((100vw - 820px) / 2)) 28px;
+}
+.input-box{
+  position:relative;display:flex;align-items:center;gap:10px;
+  background:rgba(15,15,22,.82);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:16px;
+  padding:8px 10px 8px 18px;
+  box-shadow:0 10px 40px -10px rgba(0,0,0,.85);
+  backdrop-filter:blur(24px);
+  transition:border-color .2s;
+}
+.input-box:focus-within{border-color:rgba(255,92,154,.5)}
+.input-box input{
+  flex:1;min-width:0;font-family:var(--font-sans);font-size:.96rem;color:var(--text);
+  background:transparent;border:none;outline:none;padding:9px 0;
+}
+.input-box input::placeholder{color:var(--muted)}
+
+/* ================= ВЫБОР МОДЕЛИ ================= */
+.model-select{flex:0 0 auto;position:relative}
+.model-btn{
+  display:flex;align-items:center;gap:8px;max-width:220px;
+  font-family:var(--font-mono);font-size:.76rem;letter-spacing:.04em;
+  color:var(--text);
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:10px;
+  padding:10px 13px;cursor:pointer;
+  transition:background .2s,color .2s,border-color .2s;
+}
+.model-btn:hover{
+  background:rgba(255,92,154,.1);
+  color:var(--pink);
+  border-color:rgba(255,92,154,.4);
+}
+.model-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.model-btn svg{
+  flex:0 0 auto;width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform .25s ease;
+}
+.menu-open .model-btn svg{transform:rotate(180deg)}
+
+.model-menu{
+  position:absolute;bottom:calc(100% + 10px);right:0;width:240px;
+  background:rgba(15,15,22,.96);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  padding:6px;
+  box-shadow:0 15px 45px -10px rgba(0,0,0,.9);
+  list-style:none;z-index:20;
+  max-height:400px;overflow-y:auto;
+  opacity:0;visibility:hidden;transform:translateY(10px);
+  transition:opacity .2s ease,transform .2s ease,visibility .2s;
+  backdrop-filter:blur(24px);
+}
+.menu-open .model-menu{opacity:1;visibility:visible;transform:translateY(0)}
+
+.model-menu > li{
+  position:relative;display:flex;align-items:center;gap:10px;
+  font-family:var(--font-mono);font-size:.78rem;color:var(--text);
+  padding:10px 12px;border-radius:9px;cursor:pointer;white-space:nowrap;
+  transition:background .15s,color .15s;
+}
+.model-menu > li:hover,.model-menu > li.active{background:rgba(255,255,255,.06);color:var(--pink)}
+.model-menu > li.selected{background:rgba(255,92,154,.12);color:var(--pink);font-weight:600}
+.model-menu > li img{width:18px;height:18px;object-fit:contain;flex-shrink:0;border-radius:4px}
+.model-menu > li .company-name{flex:1;overflow:hidden;text-overflow:ellipsis}
+
+.global-sub-menu{
+  position:fixed;width:280px;padding:6px;list-style:none;z-index:9999;
+  max-height:300px;overflow-y:auto;
+  background:rgba(15,15,22,.96);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  box-shadow:0 15px 45px -10px rgba(0,0,0,.9);
+  opacity:0;visibility:hidden;transform:translateX(10px);pointer-events:none;
+  transition:opacity .15s ease,transform .15s ease,visibility .15s;
+  backdrop-filter:blur(24px);
+}
+.global-sub-menu.active{opacity:1;visibility:visible;transform:translateX(0);pointer-events:auto}
+.global-sub-menu li{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+  font-family:var(--font-mono);font-size:.76rem;color:var(--text);
+  padding:9px 10px;border-radius:8px;cursor:pointer;line-height:1.3;
+  transition:background .15s,color .15s;
+}
+.global-sub-menu li:hover{background:rgba(255,255,255,.06);color:var(--pink)}
+.global-sub-menu li.selected{background:rgba(255,92,154,.12);color:var(--pink);font-weight:600}
+
+.price-badge{
+  font-family:var(--font-mono);font-size:.68rem;font-weight:600;
+  padding:2px 6px;border-radius:5px;flex:0 0 auto;
+  background:rgba(255,255,255,.07);color:var(--muted);
+}
+
+.err{color:var(--pink);font-family:var(--font-mono);font-size:.86rem}
+
+.toast{
+  position:fixed;left:50%;bottom:26px;z-index:99999;
+  transform:translate(-50%,16px);
+  padding:11px 18px;border-radius:12px;max-width:90vw;
+  background:rgba(15,15,22,.95);
+  border:1px solid rgba(255,92,154,.4);
+  color:var(--text);font-family:var(--font-mono);font-size:.78rem;line-height:1.4;
+  box-shadow:0 10px 30px rgba(0,0,0,.85);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .25s ease,transform .25s ease,visibility .25s;
+}
+.toast.show{opacity:1;visibility:visible;transform:translate(-50%,0)}
+
+@media (max-width:680px){
+  .header{padding:0 14px}
+  .nav-btn{padding:8px 10px;font-size:.66rem}
+  .user-name{display:none}
+  .model-btn{max-width:135px;padding:9px 10px}
+}
+
+/* ================= CLEAN DEVELOPER UI ================= */
+:root{
+  --bg:#0d1117;--text:#e6edf3;--muted:#8b949e;--pink:#d2a8ff;
+  --green:#3fb950;--yellow:#d29922;--blue:#58a6ff;--err:#ff7b72;
+  --font-display:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;--font-sans:'Inter',sans-serif;
+}
+html,body{background:#0d1117}
+.stage{background:linear-gradient(180deg,#0d1117 0%,#0d1117 100%)}
+.vignette{display:none}
+.header{height:64px;padding:0 max(20px,calc((100vw - 1180px)/2));background:#0d1117;border-bottom:1px solid #30363d;backdrop-filter:none}
+.brand{font-family:var(--font-sans);font-size:1rem;font-weight:650;letter-spacing:-.035em}
+.nav-btn{font-family:var(--font-sans);font-size:.82rem;letter-spacing:0;text-transform:none;background:transparent;border:1px solid transparent;border-radius:7px;padding:8px 12px;color:#c9d1d9;backdrop-filter:none}
+.nav-btn:hover{background:#161b22;color:#e6edf3;border-color:#30363d}
+.nav-btn.active{background:#161b22;color:#e6edf3;border-color:#30363d}
+.balance-chip,.user-chip{background:#161b22;border:1px solid #30363d;backdrop-filter:none;border-radius:8px}
+.user-avatar{background:#21262d;border-color:#484f58;color:#d2a8ff}
+.full-page-view{top:64px;max-width:none;padding:38px max(22px,calc((100vw - 1120px)/2)) 70px;gap:22px}
+.page-header-row{margin-bottom:4px}
+.page-title{font-family:var(--font-sans);font-size:clamp(1.6rem,3vw,2.15rem);font-weight:650;letter-spacing:-.045em}
+.page-title em{color:#d2a8ff}
+.page-content-box{background:transparent;border:0;border-radius:0;padding:0;box-shadow:none;backdrop-filter:none;gap:18px}
+.page-text{color:#a5adb7;font-size:.94rem;line-height:1.75}
+.page-text strong{color:#e6edf3}
+.page-text code,.docs-inline-code{background:#161b22;color:#d2a8ff;border:1px solid #30363d;border-radius:5px;padding:2px 6px}
+.code-block{background:#0d1117;border:1px solid #30363d;border-radius:9px;box-shadow:none;backdrop-filter:none}
+.code-block:hover{border-color:#484f58}
+.code-head{background:#161b22;border-bottom:1px solid #30363d;padding:9px 12px}
+.code-dots{display:none!important}
+.code-lang{color:#a5adb7;letter-spacing:0;text-transform:none;font-size:.75rem}
+.code-btn{background:#21262d;border-color:#30363d;border-radius:6px;font-family:var(--font-sans);font-size:.72rem;letter-spacing:0;text-transform:none}
+.code-btn:hover{background:#30363d;color:#e6edf3;border-color:#484f58}
+.code-block pre{font-size:.8rem;line-height:1.7;color:#c9d1d9}
+.chat-container{top:64px}
+.auth-panel{top:64px}
+.email-form,.modal-card{background:#161b22;border:1px solid #30363d;border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.25);backdrop-filter:none}
+.auth-title,.modal-title{font-family:var(--font-sans);letter-spacing:-.04em}
+.btn-primary{font-family:var(--font-sans);letter-spacing:0;text-transform:none;background:#238636;color:#fff;border:1px solid rgba(240,246,252,.1);border-radius:7px}
+.btn-primary:hover{background:#2ea043;color:#fff;border-color:rgba(240,246,252,.15)}
+.input-box{background:#161b22;border:1px solid #30363d;border-radius:10px;box-shadow:none;backdrop-filter:none}
+.model-btn,.model-menu,.global-sub-menu{background:#161b22;border-color:#30363d;backdrop-filter:none}
+.model-btn:hover,.model-menu>li:hover,.global-sub-menu li:hover{color:#d2a8ff}
+.bubble{border-radius:12px}
+.message.user .bubble{background:#1f2937;border-color:#30363d}
+.message.ai .bubble{background:#161b22;border-color:#30363d;box-shadow:none;backdrop-filter:none}
+.toast{background:#161b22;border-color:#484f58;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.docs-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:34px;align-items:start}
+.docs-sidebar{position:sticky;top:16px;display:flex;flex-direction:column;gap:5px;border-right:1px solid #30363d;padding-right:18px}
+.docs-sidebar a{color:#8b949e;text-decoration:none;font-size:.84rem;padding:8px 10px;border-radius:6px}
+.docs-sidebar a:hover{background:#161b22;color:#e6edf3}
+.docs-main{min-width:0;display:flex;flex-direction:column;gap:22px}
+.docs-section{scroll-margin-top:22px;display:flex;flex-direction:column;gap:12px}
+.docs-section h2{font-size:1.15rem;letter-spacing:-.025em;font-weight:620;color:#e6edf3}
+.docs-section p,.docs-section li{color:#a5adb7;font-size:.9rem;line-height:1.75}
+.docs-section ul{padding-left:20px;display:grid;gap:5px}
+.docs-meta{display:flex;flex-wrap:wrap;gap:8px}
+.docs-pill{font: .72rem var(--font-mono);padding:5px 8px;border:1px solid #30363d;background:#161b22;color:#c9d1d9;border-radius:6px}
+.docs-callout{padding:13px 15px;border:1px solid #3d444d;border-left:3px solid #d29922;background:#161b22;border-radius:7px;color:#c9d1d9;font-size:.86rem;line-height:1.65}
+.docs-language-list{display:flex;flex-wrap:wrap;gap:7px}
+.docs-language-list button{font: .78rem var(--font-sans);color:#c9d1d9;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:7px 10px;cursor:pointer}
+.docs-language-list button.active{color:#fff;border-color:#8b949e;background:#21262d}
+.docs-code-title{font-size:.83rem;color:#c9d1d9}
+@media(max-width:760px){.docs-layout{grid-template-columns:1fr;gap:18px}.docs-sidebar{position:static;border-right:0;border-bottom:1px solid #30363d;padding:0 0 12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.full-page-view{padding:24px 16px 50px}.header{padding:0 12px}.header-right{gap:3px}.nav-btn{padding:7px 8px;font-size:.72rem}}
+@media(max-width:480px){.header{height:auto;min-height:64px;align-items:flex-start;padding:12px;gap:8px}.header-right{flex-wrap:wrap;justify-content:flex-end}.full-page-view{top:76px}.chat-container{top:76px}.auth-panel{top:76px}.docs-sidebar{grid-template-columns:1fr 1fr}.code-block pre{font-size:.72rem}}
+
+
+/* Admin console */
+.admin-overlay{position:fixed;inset:0;z-index:500;background:#0b0d10;color:#e6edf3;display:none;overflow:auto;font-family:Inter, sans-serif}
+.admin-overlay.open{display:block}.admin-shell{max-width:1180px;margin:0 auto;padding:34px 22px 70px}.admin-top{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:1px solid #252b33;padding-bottom:18px;margin-bottom:24px}.admin-title{font-size:1.5rem;font-weight:650;letter-spacing:-.04em}.admin-muted{color:#8b949e;font-size:.88rem}.admin-login{max-width:390px;margin:18vh auto;padding:26px;background:#11151b;border:1px solid #30363d;border-radius:12px}.admin-input{width:100%;padding:12px 13px;background:#0d1117;border:1px solid #30363d;border-radius:7px;color:#e6edf3;margin:8px 0 12px;font:inherit}.admin-btn{background:#21262d;border:1px solid #3a424c;color:#e6edf3;border-radius:7px;padding:9px 13px;cursor:pointer;font:inherit;font-size:.86rem}.admin-btn:hover{border-color:#8b949e}.admin-btn.primary{background:#238636;border-color:#2ea043}.admin-btn.danger{background:#8e2727;border-color:#b33b3b}.admin-tabs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px}.admin-tabs button.active{background:#30363d;border-color:#8b949e}.admin-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:24px}.admin-stat{background:#11151b;border:1px solid #252b33;border-radius:9px;padding:17px}.admin-stat strong{display:block;font-size:1.7rem;margin-top:8px;font-weight:650}.admin-panel{background:#11151b;border:1px solid #252b33;border-radius:9px;padding:18px;margin:14px 0}.admin-panel h3{font-size:1rem;margin-bottom:14px}.admin-table{width:100%;border-collapse:collapse;font-size:.87rem}.admin-table th,.admin-table td{text-align:left;padding:11px 9px;border-bottom:1px solid #252b33;vertical-align:middle}.admin-table th{color:#8b949e;font-weight:500}.admin-row-actions{display:flex;gap:6px;flex-wrap:wrap}.admin-form-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.admin-form-row .admin-input{flex:1;min-width:150px;margin:0}.admin-error{color:#ff7b72;margin-top:10px;font-size:.85rem}.admin-empty{color:#8b949e;padding:16px 0}.ban-screen{position:fixed;inset:0;z-index:600;display:none;place-items:center;background:#090b0e;color:#e6edf3;padding:20px;text-align:center}.ban-screen.open{display:grid}.ban-card{max-width:460px;background:#11151b;border:1px solid #30363d;border-radius:12px;padding:30px}.ban-card h2{font-size:1.35rem;margin-bottom:12px}.ban-card p{color:#a5adb7;line-height:1.6;margin-bottom:18px}
+@media(max-width:700px){.admin-grid{grid-template-columns:1fr}.admin-table{display:block;overflow:auto;white-space:nowrap}.admin-shell{padding:22px 14px}}
+
+</style>
+</head>
+<body class="locked">
+
+<div class="stage" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<div class="header">
+  <div class="brand" id="logoBrand">ProvvAI</div>
+
+  <div class="header-right">
+    <button type="button" class="nav-btn active" id="navChatBtn">Чат</button>
+    <button type="button" class="nav-btn" id="apiDocsBtn">Документация</button>
+    <button type="button" class="nav-btn" id="apiKeysBtn">API</button>
+    <button type="button" class="nav-btn" id="topupLinkBtn">Пополнение</button>
+    
+    <div class="balance-chip" id="balanceChip" hidden>
+      <span id="balanceText">$100.00</span>
+    </div>
+
+    <div class="user-chip" id="userChip" hidden>
+      <div class="user-avatar" id="userAvatar"></div>
+      <span class="user-name" id="userName"></span>
+      <button type="button" class="logout-btn" id="logoutBtn" title="Выйти" aria-label="Выйти">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 4.5H6.5A2.5 2.5 0 0 0 4 7v10a2.5 2.5 0 0 0 2.5 2.5H9"/>
+          <path d="M15.5 8.5 19 12l-3.5 3.5"/>
+          <path d="M19 12H9.5"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= API DOCUMENTATION ================= -->
+<div class="full-page-view" id="docsView">
+  <div class="page-header-row">
+    <h1 class="page-title">API <em>документация</em></h1>
+    <button type="button" class="nav-btn" id="backFromDocs">← Назад к чату</button>
+  </div>
+  <div class="docs-layout">
+    <nav class="docs-sidebar" aria-label="Разделы документации">
+      <a href="#docs-start">Начало работы</a><a href="#docs-auth">Авторизация</a>
+      <a href="#docs-request">Запрос</a><a href="#docs-response">Ответ</a>
+      <a href="#docs-models">Модели</a><a href="#docs-errors">Ошибки</a>
+      <a href="#docs-examples">Примеры кода</a><a href="#docs-limits">Ограничения</a>
+    </nav>
+    <main class="docs-main">
+      <section class="docs-section" id="docs-start">
+        <div class="docs-meta"><span class="docs-pill">HTTP API</span><span class="docs-pill">JSON</span><span class="docs-pill">Chat Completions</span></div>
+        <h2>Начало работы</h2>
+        <p>ProvvAI предоставляет HTTP endpoint для отправки сообщений выбранной модели и получения ответа в формате, совместимом со структурой Chat Completions.</p>
+        <div class="code-block" style="margin:0"><div class="code-head"><div class="code-head-left"><span class="code-lang">Base URL</span></div><div class="code-actions"><button type="button" class="code-btn" id="copyBaseUrlBtn">Копировать</button></div></div><pre><code id="baseUrlCode">https://winter-sun-c0a4.agonekg.workers.dev</code></pre></div>
+        <p>Основной запрос отправляется методом <code>POST</code> на базовый URL. Тело запроса передаётся в формате JSON.</p>
+      </section>
+      <section class="docs-section" id="docs-auth">
+        <h2>Авторизация</h2>
+        <p>В примере публичного API используется заголовок Bearer. Подставьте собственный ключ вместо заполнителя.</p>
+        <div class="code-block" style="margin:0"><div class="code-head"><div class="code-head-left"><span class="code-lang">HTTP headers</span></div></div><pre><code>Content-Type: application/json
+Authorization: Bearer YOUR_PROVV_API_KEY</code></pre></div>
+        <div class="docs-callout">Не размещайте секретный API-ключ в открытом HTML или JavaScript, который отправляется браузеру. Для клиентских приложений используйте собственный сервер-посредник.</div>
+      </section>
+      <section class="docs-section" id="docs-request">
+        <h2>Формат запроса</h2>
+        <p>Минимальный пример содержит модель и массив сообщений. В коде самого приложения также используются поля <code>provider</code> и <code>max_tokens</code>; доступность дополнительных параметров зависит от реализации сервера.</p>
+        <div class="code-block" style="margin:0"><div class="code-head"><div class="code-head-left"><span class="code-lang">JSON body</span></div><div class="code-actions"><button type="button" class="code-btn" id="copyJsonBtn">Копировать</button></div></div><pre><code id="requestJsonCode">{
+  "model": "Prov-claude-fable-5",
+  "messages": [
+    { "role": "user", "content": "Привет!" }
+  ]
+}</code></pre></div>
+        <ul><li><code>model</code> — идентификатор модели. В примере внешнего API используется префикс <code>Prov-</code>.</li><li><code>messages</code> — массив сообщений с полями <code>role</code> и <code>content</code>.</li><li><code>provider</code> — используется внутренним клиентом ProvvAI для выбора провайдера.</li><li><code>max_tokens</code> — лимит ответа, передаваемый внутренним клиентом.</li></ul>
+      </section>
+      <section class="docs-section" id="docs-response">
+        <h2>Ответ сервера</h2>
+        <p>Внешний пример ожидает текст ответа в <code>choices[0].message.content</code>. Клиент ProvvAI дополнительно умеет читать варианты <code>result</code> и <code>message.content</code>.</p>
+        <div class="code-block" style="margin:0"><div class="code-head"><div class="code-head-left"><span class="code-lang">Response example</span></div></div><pre><code>{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "Привет! Чем могу помочь?"
+      }
+    }
+  ]
+}</code></pre></div>
+      </section>
+      <section class="docs-section" id="docs-models">
+        <h2>Модели</h2>
+        <p>В исходном интерфейсе перечислены следующие идентификаторы. Для внешнего API используйте формат имени, указанный в его примере, и проверьте актуальность доступности модели в своём аккаунте.</p>
+        <ul><li>Anthropic: <code>claude-fable-5</code>, <code>claude-opus-5</code>, <code>claude-sonnet-5</code></li><li>OpenAI: <code>gpt-6-astra</code>, <code>gpt-6-luna</code>, <code>gpt-5.5</code></li><li>Google: <code>gemini-3.1-pro</code></li><li>DeepSeek: <code>deepseek-v4.1-flash</code></li><li>Cloudflare: <code>@cf/meta/llama-3.3-70b-instruct-fp8-fast</code>, <code>@cf/meta/llama-3.1-8b-instruct</code></li></ul>
+      </section>
+      <section class="docs-section" id="docs-errors">
+        <h2>Обработка ошибок</h2>
+        <p>Проверяйте HTTP-статус ответа до чтения полей результата. В текущем клиенте отдельно обрабатывается статус <code>401</code>; для остальных ошибок отображается поле <code>error</code>, если оно присутствует.</p>
+        <div class="code-block" style="margin:0"><div class="code-head"><div class="code-head-left"><span class="code-lang">JavaScript error handling</span></div></div><pre><code>const response = await fetch(API_URL, options);
+const data = await response.json().catch(() => ({}));
+
+if (!response.ok || data.success === false) {
+  const message = data.error?.message || data.error || `HTTP ${response.status}`;
+  throw new Error(message);
+}</code></pre></div>
+        <p>Полный перечень кодов ошибок и их схемы в исходном проекте не описаны. Не предполагайте наличие специальных кодов, пока они не подтверждены серверной реализацией.</p>
+      </section>
+      <section class="docs-section" id="docs-examples">
+        <h2>Примеры интеграции</h2>
+        <p>Выберите язык. Все примеры ниже иллюстрируют один и тот же HTTP-запрос к существующему endpoint.</p>
+        <div class="docs-language-list" id="docsLanguageList"></div>
+        <div class="code-block" style="margin:0"><div class="code-head"><div class="code-head-left"><span class="code-lang" id="docsCodeLanguage">JavaScript · Fetch</span></div><div class="code-actions"><button type="button" class="code-btn" id="copyLanguageCodeBtn">Копировать</button></div></div><pre><code id="languageCode"></code></pre></div>
+      </section>
+      <section class="docs-section" id="docs-limits">
+        <h2>Что подтверждено текущей реализацией</h2>
+        <p>В предоставленном HTML присутствует один POST endpoint, JSON-тело с моделью и сообщениями, cookie-сессия для встроенного чата и пример Bearer-заголовка для внешнего вызова. В проекте не обнаружена спецификация или реализация отдельных маршрутов для embeddings, изображений, аудио, файлов, tools/function calling или streaming.</p>
+        <div class="docs-callout">Примеры на разных языках — это клиенты одного HTTP endpoint, а не отдельные SDK. Для точного описания всех функций API понадобится серверный Worker или OpenAPI-схема.</div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- ================= СТРАНИЦА: API КЛЮЧИ ================= -->
+<div class="full-page-view" id="keysView">
+  <div class="page-header-row">
+    <h1 class="page-title">Управление <em>API Ключами</em></h1>
+    <button type="button" class="nav-btn" id="backFromKeys">← Назад к чату</button>
+  </div>
+  <div class="page-content-box">
+    <p class="page-text">Здесь вы можете создавать API ключи для подключения внешних приложений к вашему аккаунту ProvvAI.</p>
+    <div id="keyList" style="display:flex;flex-direction:column;gap:8px"></div>
+    <button type="button" class="btn-primary" id="createKeyBtn" style="width:fit-content">Сгенерировать новый ключ</button>
+  </div>
+</div>
+
+<!-- ================= МОДАЛКА ПОПОЛНЕНИЯ ================= -->
+<div class="modal-overlay" id="topupModal">
+  <div class="modal-card">
+    <h2 class="modal-title">Пополнение баланса</h2>
+    <p class="modal-text">Извините! мы еще не подключили платежную систему( но мы вам начислили 100 Долларов за регистрацию вы можете следить за новостями на сайте. Спасибо.</p>
+    <button type="button" class="btn-primary" id="closeTopupBtn">Понятно</button>
+  </div>
+</div>
+
+<!-- ================= ЭКРАН ВХОДА ================= -->
+<div class="auth-panel" id="authPanel">
+  <h1 class="auth-title">Вход</h1>
+  <p class="auth-sub">Введите email и пароль, чтобы продолжить</p>
+
+  <form class="email-form" id="emailForm" autocomplete="on">
+    <div class="email-field">
+      <label for="emailInput">Email</label>
+      <input type="email" id="emailInput" placeholder="you@example.com" required autocomplete="email">
+    </div>
+    <div class="email-field">
+      <label for="passwordInput">Пароль</label>
+      <input type="password" id="passwordInput" placeholder="••••••••" required autocomplete="current-password">
+    </div>
+    <div class="auth-error" id="authError"></div>
+    <button type="submit" class="btn-primary">Продолжить</button>
+  </form>
+</div>
+
+<!-- ================= ПРИВЕТСТВЕННАЯ ПЛАШКА ================= -->
+<div class="modal-overlay" id="welcomeOverlay">
+  <div class="modal-card">
+    <h2 class="modal-title">Привет! спасибо за вход в наш сервис ProvvAI</h2>
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin:10px 0">
+      <div style="width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
+        <img src="https://icons.duckduckgo.com/ip3/gemini.google.com.ico" alt="Gemini" style="width:24px;height:24px;object-fit:contain">
+      </div>
+      <div style="width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
+        <img src="https://icons.duckduckgo.com/ip3/anthropic.com.ico" alt="Claude" style="width:24px;height:24px;object-fit:contain">
+      </div>
+      <div style="width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
+        <img src="https://icons.duckduckgo.com/ip3/openai.com.ico" alt="GPT" style="width:24px;height:24px;object-fit:contain">
+      </div>
+    </div>
+    <p class="modal-text">Получите доступ к лучшим моделям прямо сейчас!</p>
+    <button type="button" class="btn-primary" id="welcomeContinueBtn">Продолжить</button>
+  </div>
+</div>
+
+<!-- ================= ЧАТ ================= -->
+<div class="chat-container" id="chatContainer">
+  <div class="message ai"><div class="bubble">Привет! Я ProvvAI. Выбери модель в комбобоксе и напиши сообщение.</div></div>
+</div>
+
+<div class="input-area" id="inputAreaBox">
+  <div class="input-box" id="inputBox">
+    <input type="text" id="chatInput" placeholder="Сообщение нейросети..." autocomplete="off">
+    
+    <div class="model-select">
+      <button type="button" class="model-btn" id="modelBtn">
+        <span id="modelLabel">Claude Fable 5</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <ul class="model-menu" id="modelMenu"></ul>
+    </div>
+  </div>
+</div>
+
+<ul class="global-sub-menu" id="globalSubMenu"></ul>
+<div class="toast" id="toast"></div>
+
+
+<div class="admin-overlay" id="adminOverlay" aria-hidden="true">
+  <div class="admin-login" id="adminLoginPanel">
+    <div class="admin-title">ProvvAI / Admin</div>
+    <p class="admin-muted" style="margin:8px 0 18px">Введите пароль администратора</p>
+    <form id="adminLoginForm"><input class="admin-input" id="adminPassword" type="password" placeholder="Пароль" autocomplete="current-password" required><button class="admin-btn primary" type="submit">Войти</button><div class="admin-error" id="adminLoginError"></div></form>
+  </div>
+  <div class="admin-shell" id="adminDashboard" hidden>
+    <div class="admin-top"><div><div class="admin-title">Панель управления</div><div class="admin-muted">ProvvAI · административный доступ</div></div><button class="admin-btn" id="adminExit">Выйти</button></div>
+    <div class="admin-grid"><div class="admin-stat"><span class="admin-muted">Пользователей</span><strong id="statUsers">—</strong></div><div class="admin-stat"><span class="admin-muted">Всего токенов потрачено</span><strong id="statTokens">—</strong></div><div class="admin-stat"><span class="admin-muted">Заблокировано аккаунтов</span><strong id="statBanned">—</strong></div></div>
+    <div class="admin-tabs"><button class="admin-btn active" data-admin-tab="users">Бан / аккаунты</button><button class="admin-btn" data-admin-tab="appeals">Апелляции</button><button class="admin-btn" data-admin-tab="ips">Бан по IP</button><button class="admin-btn" data-admin-tab="models">Модели</button><button class="admin-btn" data-admin-tab="passwords">Смена пароля</button></div>
+    <section class="admin-panel" data-admin-page="users"><h3>Пользователи</h3><div id="adminUsers"></div></section>
+    <section class="admin-panel" data-admin-page="appeals" hidden><h3>Апелляции</h3><div id="adminAppeals"></div></section>
+    <section class="admin-panel" data-admin-page="ips" hidden><h3>Блокировка IP-адресов</h3><div class="admin-form-row"><input class="admin-input" id="banIpInput" placeholder="IP-адрес"><button class="admin-btn danger" id="banIpBtn">Заблокировать IP</button></div><div id="adminIps"></div><p class="admin-muted" style="margin-top:10px">IP-блокировка закрывает доступ к API Worker. Чтобы полностью запретить загрузку статического сайта, дополнительно настройте Cloudflare WAF/Firewall Rule для домена сайта.</p></section>
+    <section class="admin-panel" data-admin-page="models" hidden><h3>Добавление модели</h3><div class="admin-form-row"><input class="admin-input" id="modelId" placeholder="ID модели"><input class="admin-input" id="modelName" placeholder="Название"><input class="admin-input" id="modelCompany" placeholder="Провайдер / группа"></div><div class="admin-form-row"><select class="admin-input" id="modelProvider"><option value="freemodel">freemodel</option><option value="cloudflare">cloudflare</option></select><input class="admin-input" id="modelPrice" placeholder="Подпись цены (необязательно)"><button class="admin-btn primary" id="addModelBtn">Добавить</button></div><div id="adminModels"></div></section>
+    <section class="admin-panel" data-admin-page="passwords" hidden><h3>Сменить пароль аккаунта</h3><div id="adminPasswords"></div></section>
+  </div>
+</div>
+<div class="ban-screen" id="banScreen"><div class="ban-card"><h2>Ваш аккаунт был забанен</h2><p>Если вы не согласны, подайте апелляцию. Администрация рассмотрит ваше обращение.</p><input class="admin-input" id="appealEmail" type="email" placeholder="Email заблокированного аккаунта"><button class="admin-btn primary" id="submitAppeal">Подать апелляцию</button><div class="admin-muted" id="appealStatus" style="margin-top:12px"></div></div></div>
+
+<script>
+const API_URL = "https://winter-sun-c0a4.agonekg.workers.dev";
+let currentUser = null;
+let userBalance = 100.00;
+
+// Управление переключением страниц
+const chatContainer = document.getElementById('chatContainer');
+const inputAreaBox  = document.getElementById('inputAreaBox');
+const docsView      = document.getElementById('docsView');
+const keysView      = document.getElementById('keysView');
+
+const navChatBtn    = document.getElementById('navChatBtn');
+const apiDocsBtn    = document.getElementById('apiDocsBtn');
+const apiKeysBtn    = document.getElementById('apiKeysBtn');
+
+function setActiveNav(btn) {
+  [navChatBtn, apiDocsBtn, apiKeysBtn].forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function showChat() {
+  docsView.classList.remove('active');
+  keysView.classList.remove('active');
+  chatContainer.style.display = 'flex';
+  inputAreaBox.style.display = 'block';
+  setActiveNav(navChatBtn);
+}
+
+function showDocs() {
+  chatContainer.style.display = 'none';
+  inputAreaBox.style.display = 'none';
+  keysView.classList.remove('active');
+  docsView.classList.add('active');
+  setActiveNav(apiDocsBtn);
+}
+
+function showKeys() {
+  chatContainer.style.display = 'none';
+  inputAreaBox.style.display = 'none';
+  docsView.classList.remove('active');
+  keysView.classList.add('active');
+  setActiveNav(apiKeysBtn);
+  renderApiKeys();
+}
+
+document.getElementById('logoBrand').addEventListener('click', showChat);
+navChatBtn.addEventListener('click', showChat);
+apiDocsBtn.addEventListener('click', showDocs);
+document.getElementById('backFromDocs').addEventListener('click', showChat);
+
+apiKeysBtn.addEventListener('click', showKeys);
+document.getElementById('backFromKeys').addEventListener('click', showChat);
+
+document.getElementById('topupLinkBtn').addEventListener('click', () => document.getElementById('topupModal').classList.add('show'));
+document.getElementById('closeTopupBtn').addEventListener('click', () => document.getElementById('topupModal').classList.remove('show'));
+
+// Примеры API: языковые клиенты одного и того же HTTP endpoint.
+const DOC_API_URL = API_URL;
+const DOC_EXAMPLES = {
+  'JavaScript': ['JavaScript · Fetch', `const response = await fetch("${API_URL}", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer YOUR_PROVV_API_KEY"
+  },
+  body: JSON.stringify({
+    model: "Prov-claude-fable-5",
+    messages: [{ role: "user", content: "Привет!" }]
+  })
+});
+
+if (!response.ok) throw new Error("HTTP " + response.status);
+const data = await response.json();
+console.log(data.choices?.[0]?.message?.content);`],
+  'Axios': ['JavaScript · Axios', `import axios from "axios";
+
+const { data } = await axios.post("${API_URL}", {
+  model: "Prov-claude-fable-5",
+  messages: [{ role: "user", content: "Привет!" }]
+}, {
+  headers: { Authorization: "Bearer YOUR_PROVV_API_KEY" }
+});
+
+console.log(data.choices?.[0]?.message?.content);`],
+  'TypeScript': ['TypeScript · Fetch', `type ChatResponse = { choices?: { message?: { content?: string } }[] };
+
+const response = await fetch("${API_URL}", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer YOUR_PROVV_API_KEY"
+  },
+  body: JSON.stringify({
+    model: "Prov-claude-fable-5",
+    messages: [{ role: "user", content: "Привет!" }]
+  })
+});
+if (!response.ok) throw new Error("HTTP " + response.status);
+const data = await response.json() as ChatResponse;
+console.log(data.choices?.[0]?.message?.content);`],
+  'HTML': ['HTML · Browser Fetch', `<!doctype html>
+<html lang="ru">
+  <body>
+    <button id="ask">Отправить запрос</button>
+    <pre id="output"></pre>
+    <script>
+      document.querySelector("#ask").onclick = async () => {
+        const response = await fetch("${API_URL}", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer YOUR_PROVV_API_KEY"
+          },
+          body: JSON.stringify({
+            model: "Prov-claude-fable-5",
+            messages: [{ role: "user", content: "Привет!" }]
+          })
+        });
+        const data = await response.json();
+        document.querySelector("#output").textContent =
+          data.choices?.[0]?.message?.content ?? JSON.stringify(data);
+      };
+    <\/script>
+  </body>
+</html>`],
+  'Python': ['Python · requests', `import requests
+
+response = requests.post(
+    "${API_URL}",
+    headers={"Authorization": "Bearer YOUR_PROVV_API_KEY"},
+    json={
+        "model": "Prov-claude-fable-5",
+        "messages": [{"role": "user", "content": "Привет!"}],
+    },
+    timeout=60,
+)
+response.raise_for_status()
+data = response.json()
+print(data["choices"][0]["message"]["content"])`],
+  'Python httpx': ['Python · httpx', `import httpx
+
+with httpx.Client(timeout=60) as client:
+    response = client.post(
+        "${API_URL}",
+        headers={"Authorization": "Bearer YOUR_PROVV_API_KEY"},
+        json={"model": "Prov-claude-fable-5",
+              "messages": [{"role": "user", "content": "Привет!"}]},
+    )
+    response.raise_for_status()
+    data = response.json()
+    print(data["choices"][0]["message"]["content"])`],
+  'C#': ['C# · HttpClient', `using System.Net.Http.Headers;
+using System.Net.Http.Json;
+
+using var client = new HttpClient();
+client.DefaultRequestHeaders.Authorization =
+    new AuthenticationHeaderValue("Bearer", "YOUR_PROVV_API_KEY");
+
+var body = new {
+    model = "Prov-claude-fable-5",
+    messages = new[] { new { role = "user", content = "Привет!" } }
+};
+using var response = await client.PostAsJsonAsync("${API_URL}", body);
+response.EnsureSuccessStatusCode();
+var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+Console.WriteLine(json.GetProperty("choices")[0]
+    .GetProperty("message").GetProperty("content").GetString());`],
+  'Java': ['Java · HttpClient', `var client = java.net.http.HttpClient.newHttpClient();
+var json = """
+{"model":"Prov-claude-fable-5","messages":[{"role":"user","content":"Привет!"}]}
+""";
+var request = java.net.http.HttpRequest.newBuilder()
+    .uri(java.net.URI.create("${API_URL}"))
+    .header("Content-Type", "application/json")
+    .header("Authorization", "Bearer YOUR_PROVV_API_KEY")
+    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(json))
+    .build();
+var response = client.send(request,
+    java.net.http.HttpResponse.BodyHandlers.ofString());
+if (response.statusCode() / 100 != 2)
+    throw new RuntimeException(response.body());
+System.out.println(response.body());`],
+  'PHP': ['PHP · cURL', `<?php
+$payload = [
+  "model" => "Prov-claude-fable-5",
+  "messages" => [["role" => "user", "content" => "Привет!"]]
+];
+$ch = curl_init("${API_URL}");
+curl_setopt_array($ch, [
+  CURLOPT_POST => true,
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_HTTPHEADER => [
+    "Content-Type: application/json",
+    "Authorization: Bearer YOUR_PROVV_API_KEY"
+  ],
+  CURLOPT_POSTFIELDS => json_encode($payload)
+]);
+$result = curl_exec($ch);
+if ($result === false) throw new RuntimeException(curl_error($ch));
+curl_close($ch);
+echo $result;`],
+  'Go': ['Go · net/http', `package main
+
+import (
+  "bytes"
+  "fmt"
+  "io"
+  "net/http"
+)
+
+func main() {
+  body := []byte({"model":"Prov-claude-fable-5","messages":[{"role":"user","content":"Привет!"}]})
+  req, _ := http.NewRequest("POST", "${API_URL}", bytes.NewReader(body))
+  req.Header.Set("Content-Type", "application/json")
+  req.Header.Set("Authorization", "Bearer YOUR_PROVV_API_KEY")
+  res, err := http.DefaultClient.Do(req)
+  if err != nil { panic(err) }
+  defer res.Body.Close()
+  if res.StatusCode < 200 || res.StatusCode >= 300 { panic(res.Status) }
+  data, _ := io.ReadAll(res.Body)
+  fmt.Println(string(data))
+}`.replace(/\u007f/g, '`')],
+  'Ruby': ['Ruby · Net::HTTP', `require "net/http"
+require "json"
+uri = URI("${API_URL}")
+request = Net::HTTP::Post.new(uri)
+request["Content-Type"] = "application/json"
+request["Authorization"] = "Bearer YOUR_PROVV_API_KEY"
+request.body = {
+  model: "Prov-claude-fable-5",
+  messages: [{ role: "user", content: "Привет!" }]
+}.to_json
+response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+  http.request(request)
+end
+raise response.body unless response.is_a?(Net::HTTPSuccess)
+puts response.body`],
+  'Rust': ['Rust · reqwest', `use reqwest::Client;
+use serde_json::json;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = Client::new();
+    let response = client.post("${API_URL}")
+        .bearer_auth("YOUR_PROVV_API_KEY")
+        .json(&json!({
+            "model": "Prov-claude-fable-5",
+            "messages": [{"role": "user", "content": "Привет!"}]
+        }))
+        .send().await?.error_for_status()?;
+    println!("{}", response.text().await?);
+    Ok(())
+}`],
+  'Kotlin': ['Kotlin · OkHttp', `val client = okhttp3.OkHttpClient()
+val json = """{"model":"Prov-claude-fable-5","messages":[{"role":"user","content":"Привет!"}]}"""
+val body = json.toRequestBody("application/json".toMediaType())
+val request = okhttp3.Request.Builder()
+    .url("${API_URL}")
+    .header("Authorization", "Bearer YOUR_PROVV_API_KEY")
+    .post(body)
+    .build()
+client.newCall(request).execute().use { response ->
+    check(response.isSuccessful) { "HTTP ${'$'}{response.code}" }
+    println(response.body?.string())
+}`],
+  'Swift': ['Swift · URLSession', `import Foundation
+
+let url = URL(string: "${API_URL}")!
+var request = URLRequest(url: url)
+request.httpMethod = "POST"
+request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+request.setValue("Bearer YOUR_PROVV_API_KEY", forHTTPHeaderField: "Authorization")
+request.httpBody = try JSONSerialization.data(withJSONObject: [
+    "model": "Prov-claude-fable-5",
+    "messages": [["role": "user", "content": "Привет!"]]
+])
+let (data, response) = try await URLSession.shared.data(for: request)
+guard (response as? HTTPURLResponse)?.statusCode ?? 500 < 300 else {
+    throw URLError(.badServerResponse)
+}
+print(String(decoding: data, as: UTF8.self))`],
+  'Bash': ['Bash · cURL', `curl --request POST \\
+  --url "${API_URL}" \\
+  --header "Content-Type: application/json" \\
+  --header "Authorization: Bearer YOUR_PROVV_API_KEY" \\
+  --data '{
+    "model": "Prov-claude-fable-5",
+    "messages": [{"role": "user", "content": "Привет!"}]
+  }'`]
+};
+function copyTextFrom(id, button) {
+  const text = document.getElementById(id)?.textContent || '';
+  navigator.clipboard.writeText(text).then(() => {
+    if (!button) return;
+    const previous = button.textContent;
+    button.textContent = 'Скопировано'; button.classList.add('done');
+    setTimeout(() => { button.textContent = previous; button.classList.remove('done'); }, 1400);
+  }).catch(() => showToast('Не удалось скопировать. Выделите текст вручную.'));
+}
+document.getElementById('copyBaseUrlBtn').addEventListener('click', e => copyTextFrom('baseUrlCode', e.currentTarget));
+document.getElementById('copyJsonBtn').addEventListener('click', e => copyTextFrom('requestJsonCode', e.currentTarget));
+document.getElementById('copyLanguageCodeBtn').addEventListener('click', e => copyTextFrom('languageCode', e.currentTarget));
+const languageList = document.getElementById('docsLanguageList');
+function selectDocLanguage(name) {
+  const sample = DOC_EXAMPLES[name];
+  if (!sample) return;
+  document.getElementById('docsCodeLanguage').textContent = sample[0];
+  document.getElementById('languageCode').textContent = sample[1];
+  languageList.querySelectorAll('button').forEach(button => button.classList.toggle('active', button.dataset.language === name));
+}
+Object.keys(DOC_EXAMPLES).forEach((name, index) => {
+  const button = document.createElement('button');
+  button.type = 'button'; button.textContent = name; button.dataset.language = name;
+  button.addEventListener('click', () => selectDocLanguage(name));
+  languageList.appendChild(button);
+  if (index === 0) selectDocLanguage(name);
+});
+
+// Создание API ключей (доступно только после пополнения баланса)
+document.getElementById('createKeyBtn').addEventListener('click', () => {
+  document.getElementById('topupModal').classList.add('show');
+});
+
+function renderApiKeys() {
+  const list = document.getElementById('keyList');
+  list.innerHTML = '<span class="page-text" style="color:var(--pink);font-family:var(--font-mono);font-size:.84rem;">Создание API ключей временно недоступно: требуется пополнение баланса (платежная система в процессе подключения).</span>';
+}
+
+async function checkAuth() {
+  try {
+    const res = await fetch(API_URL + "/auth/me", { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      currentUser = { email: data.email, name: data.email.split('@')[0], username: data.email };
+      if (typeof data.balance === 'number') userBalance = data.balance;
+      renderUser();
+    } else {
+      const authError = await res.clone().json().catch(()=>({}));
+      if (authError.banned) showBanScreen(authError.email || currentUser?.email || '');
+      clearUserState();
+    }
+  } catch (e) {
+    console.error("Ошибка проверки авторизации", e);
+  }
+}
+
+function clearUserState() {
+  currentUser = null;
+  document.body.classList.add('locked');
+  document.getElementById('authPanel').classList.remove('hidden');
+  document.getElementById('welcomeOverlay').classList.remove('show');
+  document.getElementById('userChip').hidden = true;
+  document.getElementById('balanceChip').hidden = true;
+  document.getElementById('emailInput').value = '';
+  document.getElementById('passwordInput').value = '';
+  document.getElementById('authError').textContent = '';
+  showChat();
+}
+
+function renderUser() {
+  if (!currentUser) return;
+  const chip = document.getElementById('userChip');
+  const balanceChip = document.getElementById('balanceChip');
+  const avatar = document.getElementById('userAvatar');
+  const name = document.getElementById('userName');
+  const panel = document.getElementById('authPanel');
+
+  document.body.classList.remove('locked');
+  panel.classList.add('hidden');
+  chip.hidden = false;
+  balanceChip.hidden = false;
+
+  const display = currentUser.name || 'Пользователь';
+  name.textContent = display;
+  avatar.textContent = display.trim().charAt(0).toUpperCase();
+  updateBalanceDisplay();
+}
+
+function updateBalanceDisplay() {
+  const balanceText = document.getElementById('balanceText');
+  balanceText.textContent = `$${userBalance.toFixed(2)}`;
+}
+
+document.getElementById('welcomeContinueBtn').addEventListener('click', () => {
+  document.getElementById('welcomeOverlay').classList.remove('show');
+});
+
+document.getElementById('emailForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+  const errorEl = document.getElementById('authError');
+  errorEl.textContent = '';
+
+  if (!email || !password) { errorEl.textContent = 'Заполните все поля.'; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = 'Введите корректный email.'; return; }
+  if (password.length < 6) { errorEl.textContent = 'Пароль должен быть не короче 6 символов.'; return; }
+
+  const submitBtn = e.target.querySelector('.btn-primary');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Проверка…';
+
+  try {
+    const res = await fetch(API_URL + "/auth/login", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      if (data.banned) showBanScreen(email);
+      errorEl.textContent = data.error || 'Ошибка авторизации';
+      return;
+    }
+
+    currentUser = { email: data.email, name: data.email.split('@')[0], username: data.email };
+    if (typeof data.balance === 'number') userBalance = data.balance;
+    renderUser();
+    document.getElementById('welcomeOverlay').classList.add('show');
+  } catch (err) {
+    errorEl.textContent = 'Сеть недоступна: ' + err.message;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Продолжить';
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  try {
+    await fetch(API_URL + "/auth/logout", { method: 'POST', credentials: 'include' });
+  } catch (e) {}
+  clearUserState();
+  showToast('Вы вышли из аккаунта');
+});
+
+const SYS_NORMAL = "You are a helpful assistant. When you write UI code, never use emoji as icons — use inline SVG instead.";
+const MAX_TOKENS = 1024;
+
+let currentModel = "claude-fable-5";
+let currentProvider = "freemodel";
+
+const chatInput     = document.getElementById('chatInput');
+const btn           = document.getElementById('modelBtn');
+const label         = document.getElementById('modelLabel');
+const menu          = document.getElementById('modelMenu');
+const globalSubMenu = document.getElementById('globalSubMenu');
+
+const FULL_MODELS_DATA = {
+  "Anthropic": {
+    icon: "https://icons.duckduckgo.com/ip3/anthropic.com.ico",
+    models: [
+      { id: "claude-fable-5", provider: "freemodel", name: "Claude Fable 5", price: "$16.61" },
+      { id: "claude-opus-5", provider: "freemodel", name: "Claude Opus 5", price: "$8.30" },
+      { id: "claude-sonnet-5", provider: "freemodel", name: "Claude Sonnet 5", price: "$3.32" }
+    ]
+  },
+  "OpenAI": {
+    icon: "https://icons.duckduckgo.com/ip3/openai.com.ico",
+    models: [
+      { id: "gpt-6-astra", provider: "freemodel", name: "GPT-6 Astra", price: "$8.95" },
+      { id: "gpt-6-luna", provider: "freemodel", name: "GPT-6 Luna", price: "$0.10" },
+      { id: "gpt-5.5", provider: "freemodel", name: "GPT-5.5", price: "$8.95" }
+    ]
+  },
+  "Google (Gemini)": {
+    icon: "https://icons.duckduckgo.com/ip3/gemini.google.com.ico",
+    models: [
+      { id: "gemini-3.1-pro", provider: "freemodel", name: "Gemini 3.1 Pro", price: "$4.47" }
+    ]
+  },
+  "DeepSeek": {
+    icon: "https://icons.duckduckgo.com/ip3/deepseek.com.ico",
+    models: [
+      { id: "deepseek-v4.1-flash", provider: "freemodel", name: "DeepSeek V4.1 Flash", price: "$0.05" }
+    ]
+  },
+  "Cloudflare": {
+    icon: "https://icons.duckduckgo.com/ip3/cloudflare.com.ico",
+    models: [
+      { id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", provider: "cloudflare", name: "Llama 3.3 70B", price: "Free" },
+      { id: "@cf/meta/llama-3.1-8b-instruct", provider: "cloudflare", name: "Llama 3.1 8B", price: "Free" }
+    ]
+  }
+};
+
+let defaultModel = null;
+
+btn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('inputBox').classList.toggle('menu-open');
+  if (!document.getElementById('inputBox').classList.contains('menu-open')) {
+    menu.querySelectorAll('.model-menu > li').forEach(x => x.classList.remove('active'));
+    globalSubMenu.classList.remove('active');
+  }
+});
+
+function renderMenu(){
+  menu.innerHTML = '';
+  for (const [company, data] of Object.entries(FULL_MODELS_DATA)) {
+    const li = document.createElement('li');
+    li.innerHTML = `<img src="${data.icon}" alt=""><span class="company-name">${company}</span>`;
+
+    const subUl = document.createElement('ul');
+    subUl.className = 'hidden-sub-menu';
+
+    data.models.forEach(model => {
+      const subLi = document.createElement('li');
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = model.name;
+
+      const priceBadge = document.createElement('span');
+      priceBadge.className = 'price-badge';
+      priceBadge.textContent = model.price;
+
+      subLi.appendChild(nameSpan);
+      subLi.appendChild(priceBadge);
+      subLi.dataset.value = model.id;
+      subLi.dataset.provider = model.provider;
+
+      if (!defaultModel) {
+        defaultModel = model;
+        subLi.classList.add('selected');
+        li.classList.add('selected');
+      }
+      subUl.appendChild(subLi);
+    });
+
+    li.appendChild(subUl);
+    menu.appendChild(li);
+  }
+
+  if (defaultModel) {
+    currentModel = defaultModel.id;
+    currentProvider = defaultModel.provider;
+    label.textContent = defaultModel.name;
+  }
+}
+renderMenu();
+
+menu.addEventListener('click', (e) => {
+  const li = e.target.closest('.model-menu > li');
+  if (!li) return;
+  e.stopPropagation();
+  const isAlreadyActive = li.classList.contains('active');
+  menu.querySelectorAll('.model-menu > li').forEach(x => x.classList.remove('active'));
+  globalSubMenu.classList.remove('active');
+  if (!isAlreadyActive) {
+    li.classList.add('active');
+    const hiddenList = li.querySelector('.hidden-sub-menu');
+    if (!hiddenList) return;
+    globalSubMenu.innerHTML = '';
+    hiddenList.querySelectorAll('li').forEach(origLi => {
+      const clone = origLi.cloneNode(true);
+      if (origLi.classList.contains('selected')) clone.classList.add('selected');
+      globalSubMenu.appendChild(clone);
+    });
+    const rect = li.getBoundingClientRect();
+    let leftPos = rect.left - 280 - 8;
+    if (leftPos < 10) leftPos = rect.right + 8;
+    let topPos = Math.max(10, Math.min(rect.top, window.innerHeight - 310));
+    globalSubMenu.style.left = leftPos + 'px'; globalSubMenu.style.top = topPos + 'px';
+    requestAnimationFrame(() => { globalSubMenu.classList.add('active'); });
+  }
+});
+
+globalSubMenu.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const modelLi = e.target.closest('li');
+  if (!modelLi) return;
+
+  menu.querySelectorAll('.model-menu > li').forEach(x => x.classList.remove('selected'));
+  globalSubMenu.querySelectorAll('li').forEach(x => x.classList.remove('selected'));
+  
+  const hiddenMenu = menu.querySelector(`.hidden-sub-menu li[data-value="${modelLi.dataset.value}"]`);
+  if (hiddenMenu) {
+    hiddenMenu.classList.add('selected');
+    hiddenMenu.closest('.model-menu > li').classList.add('selected');
+  }
+  
+  modelLi.classList.add('selected');
+
+  label.textContent = modelLi.querySelector('span').textContent;
+  let rawModelId = modelLi.dataset.value;
+  if (rawModelId.startsWith('Prov-')) rawModelId = rawModelId.replace('Prov-', '');
+  currentModel = rawModelId;
+  currentProvider = modelLi.dataset.provider;
+
+  document.getElementById('inputBox').classList.remove('menu-open');
+  globalSubMenu.classList.remove('active');
+  menu.querySelectorAll('.model-menu > li').forEach(x => x.classList.remove('active'));
+});
+
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('inputBox').contains(e.target) && !globalSubMenu.contains(e.target)) {
+    document.getElementById('inputBox').classList.remove('menu-open');
+    globalSubMenu.classList.remove('active');
+    menu.querySelectorAll('.model-menu > li').forEach(x => x.classList.remove('active'));
+  }
+});
+
+/* ================= РЕНДЕР БЛОКОВ КОДА В ЧАТЕ ================= */
+const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6.5 15H5.5A2.5 2.5 0 0 1 3 12.5v-7A2.5 2.5 0 0 1 5.5 3h7A2.5 2.5 0 0 1 15 5.5v1"/></svg>';
+const ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 9.5 18 20 6.5"/></svg>';
+const ICON_DOWNLOAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11"/><polyline points="7.5 10.5 12 15 16.5 10.5"/><path d="M4.5 17.5v1.5A2.5 2.5 0 0 0 7 21.5h10a2.5 2.5 0 0 0 2.5-2.5v-1.5"/></svg>';
+const EXT_MAP = { js:'js', javascript:'js', ts:'ts', py:'py', python:'py', html:'html', css:'css', json:'json', bash:'sh', sh:'sh', sql:'sql', java:'java', cpp:'cpp', go:'go', rust:'rs', php:'php', xml:'xml', md:'md' };
+
+function makeCodeBlock(code, langRaw) {
+  const lang = String(langRaw || '').trim().toLowerCase();
+  const wrap = document.createElement('div');
+  wrap.className = 'code-block';
+
+  const head = document.createElement('div');
+  head.className = 'code-head';
+
+  const headLeft = document.createElement('div');
+  headLeft.className = 'code-head-left';
+  headLeft.innerHTML = `<div class="code-dots"><i></i><i></i><i></i></div><span class="code-lang">${lang || 'code'}</span>`;
+
+  const actions = document.createElement('div');
+  actions.className = 'code-actions';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'code-btn';
+  copyBtn.innerHTML = `${ICON_COPY}<span>Copy</span>`;
+  copyBtn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(code); } catch (e) {}
+    copyBtn.innerHTML = `${ICON_CHECK}<span>Done</span>`;
+    copyBtn.classList.add('done');
+    setTimeout(() => { copyBtn.innerHTML = `${ICON_COPY}<span>Copy</span>`; copyBtn.classList.remove('done'); }, 1400);
+  });
+
+  const dlBtn = document.createElement('button');
+  dlBtn.type = 'button';
+  dlBtn.className = 'code-btn';
+  dlBtn.title = 'Скачать';
+  dlBtn.innerHTML = ICON_DOWNLOAD;
+  dlBtn.addEventListener('click', () => {
+    const ext = EXT_MAP[lang] || 'txt';
+    const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'snippet.' + ext;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  actions.appendChild(copyBtn);
+  actions.appendChild(dlBtn);
+  head.appendChild(headLeft);
+  head.appendChild(actions);
+
+  const pre = document.createElement('pre');
+  const codeEl = document.createElement('code');
+  codeEl.textContent = code;
+  pre.appendChild(codeEl);
+
+  wrap.appendChild(head);
+  wrap.appendChild(pre);
+  return wrap;
+}
+
+function renderReply(text){
+  const frag = document.createDocumentFragment();
+  const re = /```([a-zA-Z0-9_+\-.#]*)?[ \t]*\r?\n?([\s\S]*?)```/g;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    const before = text.slice(last, m.index);
+    if (before) frag.appendChild(document.createTextNode(before));
+    const code = m[2].replace(/\n+$/, '');
+    frag.appendChild(makeCodeBlock(code, m[1]));
+    last = m.index + m[0].length;
+  }
+  const rest = text.slice(last);
+  if (rest) frag.appendChild(document.createTextNode(rest));
+  return frag;
+}
+
+chatInput.addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter' || e.shiftKey || chatInput.value.trim() === '') return;
+
+  if (userBalance <= 0) {
+    addMessage('Error top up the balance', 'ai');
+    return;
+  }
+
+  e.preventDefault();
+  let prompt = chatInput.value.trim();
+  chatInput.value = '';
+
+  addMessage(prompt, 'user');
+  const pending = addAiLoadingMessage();
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+
+  try {
+    const payload = {
+      provider: currentProvider,
+      model: currentModel,
+      messages: [
+        { role: "system", content: SYS_NORMAL },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: MAX_TOKENS
+    };
+
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+
+    if (res.status === 401) {
+      clearUserState();
+      throw new Error("Сессия истекла. Войдите снова.");
+    }
+
+    const rawText = await res.text();
+    let data;
+    try { data = JSON.parse(rawText); }
+    catch(err) { throw new Error('Не JSON: ' + rawText.slice(0, 80)); }
+
+    if (!res.ok || data.success === false) {
+      if (data.banned) showBanScreen(currentUser?.email || '');
+      const errorMsg = (data.error && data.error.message) || data.error || 'Неизвестная ошибка';
+      throw new Error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+    }
+
+    if (typeof data.balance === 'number') {
+      userBalance = data.balance;
+      updateBalanceDisplay();
+    }
+
+    let rawContent = '';
+    if (data.choices && data.choices[0] && data.choices[0].message) rawContent = data.choices[0].message.content;
+    else if (typeof data.result === 'string') rawContent = data.result;
+    else if (data.result && data.result.response) rawContent = data.result.response;
+    else if (data.message) rawContent = data.message.content;
+
+    pending.think.remove();
+    pending.bubble.innerHTML = '';
+    pending.bubble.appendChild(renderReply(rawContent || '…'));
+
+  } catch (err) {
+    pending.think.remove();
+    pending.bubble.innerHTML = '<span class="err">Ошибка: ' + err.message + '</span>';
+  }
+
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+});
+
+function addMessage(text, role){
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message ' + role;
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  msgDiv.appendChild(bubble);
+  chatContainer.appendChild(msgDiv);
+}
+
+const CHEV_SVG = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>';
+
+function addAiLoadingMessage(){
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message ai';
+
+  const think = document.createElement('div');
+  think.className = 'think';
+  think.innerHTML =
+    '<button type="button" class="think-toggle" aria-expanded="false">' +
+      CHEV_SVG +
+      '<span>Обработка запроса...</span>' +
+    '</button>' +
+    '<div class="think-body"><div class="think-inner">Соединение с моделью...</div></div>';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+
+  msgDiv.appendChild(think);
+  msgDiv.appendChild(bubble);
+  chatContainer.appendChild(msgDiv);
+
+  return { msgDiv, bubble, think };
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4200);
+}
+
+
+// Admin mode is activated only by the #admin URL fragment. All privileged actions are verified by the Worker.
+const adminOverlay = document.getElementById('adminOverlay');
+const adminLoginPanel = document.getElementById('adminLoginPanel');
+const adminDashboard = document.getElementById('adminDashboard');
+const adminApi = async (path, options={}) => {
+  const response = await fetch(API_URL + path, { credentials:'include', ...options, headers:{'Content-Type':'application/json', ...(options.headers||{})} });
+  const data = await response.json().catch(()=>({error:'Некорректный ответ сервера'}));
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+};
+function adminMode(){ return location.hash.toLowerCase() === '#admin'; }
+function openAdmin(){ adminOverlay.classList.add('open'); adminOverlay.setAttribute('aria-hidden','false'); document.body.style.overflow='auto'; adminLoginPanel.hidden=false; adminDashboard.hidden=true; }
+function closeAdmin(){ adminOverlay.classList.remove('open'); adminOverlay.setAttribute('aria-hidden','true'); document.body.style.overflow=''; }
+window.addEventListener('hashchange',()=>{ if(adminMode()) openAdmin(); else closeAdmin(); });
+if(adminMode()) openAdmin();
+document.getElementById('adminLoginForm').addEventListener('submit', async e=>{
+  e.preventDefault(); const err=document.getElementById('adminLoginError'); err.textContent='';
+  try { await adminApi('/admin/login',{method:'POST',body:JSON.stringify({password:document.getElementById('adminPassword').value})}); adminLoginPanel.hidden=true; adminDashboard.hidden=false; await loadAdmin(); }
+  catch(ex){ err.textContent=ex.message; }
+});
+document.getElementById('adminExit').addEventListener('click',async()=>{ try{await adminApi('/admin/logout',{method:'POST'});}catch{} adminDashboard.hidden=true;adminLoginPanel.hidden=false;document.getElementById('adminPassword').value=''; });
+document.querySelectorAll('[data-admin-tab]').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('[data-admin-tab]').forEach(x=>x.classList.toggle('active',x===btn));
+  document.querySelectorAll('[data-admin-page]').forEach(x=>x.hidden=x.dataset.adminPage!==btn.dataset.adminTab);
+}));
+async function loadAdmin(){ await Promise.all([loadAdminStats(),loadAdminUsers(),loadAdminAppeals(),loadAdminIps(),loadAdminModels()]); }
+async function loadAdminStats(){ const s=await adminApi('/admin/stats'); document.getElementById('statUsers').textContent=s.users; document.getElementById('statTokens').textContent=Number(s.tokensUsed).toLocaleString('ru-RU'); document.getElementById('statBanned').textContent=s.bannedUsers; }
+async function loadAdminUsers(){ const {users}=await adminApi('/admin/users'); const root=document.getElementById('adminUsers'); root.innerHTML=''; if(!users.length){root.innerHTML='<div class="admin-empty">Пользователей пока нет</div>';return;}
+ const table=document.createElement('table');table.className='admin-table';table.innerHTML='<thead><tr><th>Email</th><th>Баланс</th><th>Токены</th><th>IP последнего входа</th><th>Действие</th></tr></thead><tbody></tbody>'; const body=table.querySelector('tbody');
+ users.forEach(u=>{const tr=document.createElement('tr'); const vals=[u.email,`$${Number(u.balance).toFixed(2)}`,Number(u.tokensUsed).toLocaleString('ru-RU'),u.lastIp||'—']; vals.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td)});const td=document.createElement('td');const b=document.createElement('button');b.className='admin-btn '+(u.banned?'primary':'danger');b.textContent=u.banned?'Разбанить':'Забанить';b.onclick=async()=>{try{await adminApi('/admin/user/ban',{method:'POST',body:JSON.stringify({email:u.email,banned:!u.banned})});await loadAdmin();}catch(e){alert(e.message)}};td.appendChild(b);if(u.lastIp){const ipBtn=document.createElement('button');ipBtn.className='admin-btn';ipBtn.style.marginLeft='6px';ipBtn.textContent='Бан IP';ipBtn.onclick=async()=>{if(!confirm('Заблокировать IP '+u.lastIp+'?'))return;try{await adminApi('/admin/ip/ban',{method:'POST',body:JSON.stringify({ip:u.lastIp,banned:true})});await loadAdminIps();}catch(e){alert(e.message)}};td.appendChild(ipBtn);}tr.appendChild(td);body.appendChild(tr);});root.appendChild(table);
+ const hint=document.createElement('p');hint.className='admin-muted';hint.style.marginTop='12px';hint.textContent='Список показывает email, баланс, учтённые токены и последний IP входа.';root.appendChild(hint);
+}
+async function loadAdminAppeals(){const {appeals}=await adminApi('/admin/appeals');const root=document.getElementById('adminAppeals');root.innerHTML='';const pending=appeals.filter(a=>a.status==='pending');if(!pending.length){root.innerHTML='<div class="admin-empty">Новых апелляций нет</div>';return;}pending.forEach(a=>{const row=document.createElement('div');row.className='admin-form-row';row.style.justifyContent='space-between';const email=document.createElement('strong');email.textContent=a.email;const actions=document.createElement('div');actions.className='admin-row-actions';[['Согласиться','approve','primary'],['Отклонить','reject','danger']].forEach(([label,action,cls])=>{const b=document.createElement('button');b.className='admin-btn '+cls;b.textContent=label;b.onclick=async()=>{try{await adminApi('/admin/appeals/respond',{method:'POST',body:JSON.stringify({id:a.id,action})});await loadAdmin();}catch(e){alert(e.message)}};actions.appendChild(b)});row.append(email,actions);root.appendChild(row);});}
+async function loadAdminIps(){const {ips}=await adminApi('/admin/ip/bans');const root=document.getElementById('adminIps');root.innerHTML='';if(!ips.length){root.innerHTML='<div class="admin-empty">Заблокированных IP нет</div>';return;}ips.forEach(ip=>{const row=document.createElement('div');row.className='admin-form-row';const label=document.createElement('span');label.style.flex='1';label.textContent=ip;const b=document.createElement('button');b.className='admin-btn';b.textContent='Разблокировать';b.onclick=async()=>{try{await adminApi('/admin/ip/ban',{method:'POST',body:JSON.stringify({ip,banned:false})});await loadAdminIps()}catch(e){alert(e.message)}};row.append(label,b);root.appendChild(row);});}
+document.getElementById('banIpBtn').addEventListener('click',async()=>{const ip=document.getElementById('banIpInput').value.trim();try{await adminApi('/admin/ip/ban',{method:'POST',body:JSON.stringify({ip,banned:true})});document.getElementById('banIpInput').value='';await loadAdminIps();}catch(e){alert(e.message)}});
+async function loadAdminModels(){const {models}=await adminApi('/admin/models');const root=document.getElementById('adminModels');root.innerHTML='';models.forEach(m=>{const row=document.createElement('div');row.className='admin-form-row';const label=document.createElement('span');label.style.flex='1';label.textContent=`${m.name} · ${m.id} · ${m.provider}`;const toggle=document.createElement('button');toggle.className='admin-btn';toggle.textContent=m.enabled?'Временно отключить':'Включить';toggle.onclick=async()=>{try{await adminApi('/admin/models/toggle',{method:'POST',body:JSON.stringify({id:m.id,enabled:!m.enabled})});await loadAdminModels()}catch(e){alert(e.message)}};const del=document.createElement('button');del.className='admin-btn danger';del.textContent='Удалить';del.onclick=async()=>{if(!confirm('Удалить модель из списка?'))return;try{await adminApi('/admin/models/save',{method:'POST',body:JSON.stringify({id:m.id,remove:true})});await loadAdminModels()}catch(e){alert(e.message)}};row.append(label,toggle,del);root.appendChild(row);});}
+document.getElementById('addModelBtn').addEventListener('click',async()=>{const model={id:document.getElementById('modelId').value.trim(),name:document.getElementById('modelName').value.trim(),company:document.getElementById('modelCompany').value.trim(),provider:document.getElementById('modelProvider').value,price:document.getElementById('modelPrice').value,enabled:true};try{await adminApi('/admin/models/save',{method:'POST',body:JSON.stringify(model)});await loadAdminModels();['modelId','modelName','modelCompany','modelPrice'].forEach(id=>document.getElementById(id).value='');}catch(e){alert(e.message)}});
+async function loadAdminPasswords(){const {users}=await adminApi('/admin/users');const root=document.getElementById('adminPasswords');root.innerHTML='';users.forEach(u=>{const row=document.createElement('div');row.className='admin-form-row';const email=document.createElement('span');email.style.flex='1';email.style.alignSelf='center';email.textContent=u.email;const input=document.createElement('input');input.className='admin-input';input.type='password';input.placeholder='Новый пароль (от 6 символов)';const btn=document.createElement('button');btn.className='admin-btn primary';btn.textContent='Сменить пароль';btn.onclick=async()=>{try{await adminApi('/admin/user/password',{method:'POST',body:JSON.stringify({email:u.email,password:input.value})});input.value='';alert('Пароль изменён');}catch(e){alert(e.message)}};row.append(email,input,btn);root.appendChild(row);});}
+document.querySelector('[data-admin-tab="passwords"]').addEventListener('click',loadAdminPasswords);
+// Ban page: users can submit one appeal; approval automatically removes the account ban.
+function showBanScreen(email=''){document.getElementById('banScreen').classList.add('open');document.body.classList.add('locked');if(email)document.getElementById('appealEmail').value=email;}
+document.getElementById('submitAppeal').addEventListener('click',async()=>{const status=document.getElementById('appealStatus');try{const email=document.getElementById('appealEmail').value.trim();const r=await fetch(API_URL+'/appeals',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Не удалось отправить апелляцию');status.textContent='Апелляция отправлена. Ожидайте решения администрации.';document.getElementById('submitAppeal').disabled=true;}catch(e){status.textContent=e.message;}});
+
+async function syncPublicModels(){try{const res=await fetch(API_URL+'/models');if(!res.ok)return;const data=await res.json();const available=data.models||[];const groups={};available.forEach(m=>{const group=m.company||'Другие';(groups[group] ||= []).push({id:m.id,provider:m.provider,name:m.name||m.id,price:m.price||'—'});});if(!available.length)return;for(const group of Object.keys(FULL_MODELS_DATA))delete FULL_MODELS_DATA[group];for(const [group,models] of Object.entries(groups))FULL_MODELS_DATA[group]={icon:'',models};defaultModel=null;renderMenu();menu.querySelectorAll('img').forEach(img=>{if(!img.getAttribute('src'))img.remove();});}catch(e){console.warn('Model registry unavailable; using built-in menu',e);}}
+syncPublicModels();
+
+checkAuth();
+</script>
+</body>
+</html>
